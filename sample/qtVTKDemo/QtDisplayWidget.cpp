@@ -61,8 +61,35 @@ QTDisplayWidget::QTDisplayWidget(QWidget* parent)
 		});
 	timer->start(10);
 
-	connect(d.ui.pbone, &QPushButton::clicked, this, [&]() {
+	connect(d.ui.pbload, &QPushButton::clicked, this, [&]() {
 		d.windowsWindow->pbone();
+		});
+
+	d.ui.cbSliceDirection->addItem("X", 1);  // "X" 对应值 1
+	d.ui.cbSliceDirection->addItem("Y", 2);  // "Y" 对应值 2
+	d.ui.cbSliceDirection->addItem("Z", 3);  // "Z" 对应值 3
+
+	connect(d.ui.pbSlice, &QPushButton::clicked, this, [&]() {
+		d.windowsWindow->pbSlice(d.ui.leSliceX->text().toInt(), d.ui.leSliceY->text().toInt(), d.ui.leSliceZ->text().toInt(), d.ui.cbSliceDirection->currentData().toInt());
+		});
+	connect(d.ui.hzSlider, &QSlider::valueChanged, this, [&]() {
+		d.ui.hzSlider->value();
+		auto direction = d.ui.cbSliceDirection->currentData().toInt();
+		if (direction == 1) {
+			d.ui.leSliceX->setText(QString::number(d.ui.hzSlider->value()));
+		}
+		else if (direction == 2) {
+			d.ui.leSliceY->setText(QString::number(d.ui.hzSlider->value()));
+		}
+		else if (direction == 3) {
+			d.ui.leSliceZ->setText(QString::number(d.ui.hzSlider->value()));
+		}
+		d.windowsWindow->pbSlice(d.ui.leSliceX->text().toInt(), d.ui.leSliceY->text().toInt(), d.ui.leSliceZ->text().toInt(), d.ui.cbSliceDirection->currentData().toInt());
+
+		});
+
+	connect(d.ui.pbChangeColor, &QPushButton::clicked, this, [&]() {
+		d.windowsWindow->pbChangeColor();
 		});
 
 	d.windowsWindow->start();

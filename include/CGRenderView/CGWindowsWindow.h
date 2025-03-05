@@ -13,14 +13,15 @@ namespace CGRenderView
 		CGWindowsWindow(HWND hwnd, unsigned int width, unsigned int height);
 		~CGWindowsWindow();
 
-		void*getRenderWindow();
-		void*getQVTKOpenGLNativeWidget();
+		void* getRenderWindow();
+		void* getQVTKOpenGLNativeWidget();
 
 		void start();
 	public:
 		void pbone();
+		void pbSlice(int x, int y, int z, int direction);
 
-
+		void pbChangeColor();
 
 
 	private:

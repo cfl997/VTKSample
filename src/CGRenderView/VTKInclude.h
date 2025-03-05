@@ -11,6 +11,8 @@
 #include <vtkCamera.h>
 #include <vtkNamedColors.h>
 #include <vtkProperty.h>
+#include <vtkImageReader.h>
+
 
 
 
@@ -18,5 +20,7 @@
 #include "vtkAutoInit.h"
 VTK_MODULE_INIT(vtkRenderingOpenGL2);
 VTK_MODULE_INIT(vtkInteractionStyle);
+VTK_MODULE_INIT(vtkRenderingVolumeOpenGL2)
+
 
 #endif // !_VTK_INCLUDE_H_

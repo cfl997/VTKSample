@@ -6,7 +6,7 @@
 #include <vtkMarchingCubes.h>
 #include <vtkStripper.h>
 #include <vtkOutlineFilter.h>
-
+#include "VTKReader3D.h"
 
 using namespace CGRenderView;
 
@@ -16,6 +16,7 @@ struct CGWindowsWindow::PrivateData
 	vtkSmartPointer<vtkRenderWindow> renderWindow;
 	vtkSmartPointer<vtkRenderer> renderer;
 
+	VTKRender3D* render3D = nullptr;
 
 	QVTKOpenGLNativeWidget* vtkWidget;
 	HWND hwnd;
@@ -81,64 +82,21 @@ CGWindowsWindow::CGWindowsWindow(HWND hwnd, unsigned int width, unsigned int hei
 	*/
 	d.rendererOne = vtkSmartPointer<vtkRenderer>::New();
 	{
-
-		vtkSmartPointer<vtkImageReader> reader = vtkSmartPointer<vtkImageReader>::New();
-		reader->SetFileName("E:/A/program/vtk/Render3D/bin64/data/mri_woman_256x256x109_uint16.raw");
-		reader->SetFileDimensionality(3);
-		reader->SetDataScalarType(VTK_UNSIGNED_SHORT);
-		reader->SetDataExtent(0, 255, 0, 255, 0, 108);
-		reader->SetDataSpacing(0.9, 0.9, 2);
-		reader->SetDataOrigin(0.0, 0.0, 0.0);
-		reader->Update();
-
-		if (!reader->GetOutput()) {
-			std::cerr << "Error: Failed to load RAW file!" << std::endl;
-			assert(0);
-		}
-		std::cout << "RAW file loaded successfully!" << std::endl;
-
-		vtkSmartPointer<vtkMarchingCubes> marchingcube = vtkSmartPointer<vtkMarchingCubes>::New();
-		marchingcube->SetInputConnection(reader->GetOutputPort());
-		marchingcube->ComputeNormalsOn();
-		marchingcube->ComputeGradientsOn();
-		marchingcube->SetValue(0, 500);
-
-		vtkSmartPointer<vtkStripper> Stripper = vtkSmartPointer<vtkStripper>::New();
-		Stripper->SetInputConnection(marchingcube->GetOutputPort());
-
-		vtkSmartPointer<vtkPolyDataMapper> polyMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-		polyMapper->SetInputConnection(Stripper->GetOutputPort());
-		polyMapper->ScalarVisibilityOff();
-
-		vtkSmartPointer<vtkActor> actor = vtkSmartPointer<vtkActor>::New();
-		actor->SetMapper(polyMapper);
-		actor->GetProperty()->SetDiffuseColor(1, 0.19, 0.15);
-		actor->GetProperty()->SetSpecular(0.1);
-		actor->GetProperty()->SetSpecularPower(10);
-		actor->GetProperty()->SetColor(1, 0, 0);
-
-		vtkSmartPointer<vtkOutlineFilter> outlinefilter = vtkSmartPointer<vtkOutlineFilter>::New();
-		outlinefilter->SetInputConnection(reader->GetOutputPort());
-
-		vtkSmartPointer<vtkPolyDataMapper> outlineMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-		outlineMapper->SetInputConnection(outlinefilter->GetOutputPort());
-
-		vtkSmartPointer<vtkActor> outlineActor = vtkSmartPointer<vtkActor>::New();
-		outlineActor->SetMapper(outlineMapper);
-		outlineActor->GetProperty()->SetColor(0, 0, 0);
-
-		d.rendererOne->AddActor(actor);
-		d.rendererOne->AddActor(outlineActor);
-		d.rendererOne->SetBackground(1, 1, 1);
-
-
+		d.render3D = new CGRenderView::VTKRender3D(d.rendererOne);
+		d.render3D->loadFile("E:/A/program/github/VTKSample/bin64/data/mri_woman_256x256x109_uint16.raw", 256, 256, 109);
 	}
 
 }
 
 CGWindowsWindow::~CGWindowsWindow()
 {
+	if (m_priv->render3D)
+	{
+		delete m_priv->render3D;
+		m_priv->render3D = nullptr;
+	}
 	delete m_priv;
+	m_priv = nullptr;
 }
 
 void* CGRenderView::CGWindowsWindow::getRenderWindow()
@@ -197,6 +155,27 @@ void CGRenderView::CGWindowsWindow::pbone()
 	auto& d = *m_priv;
 	d.renderWindow->RemoveRenderer(d.renderer);
 	d.renderWindow->AddRenderer(d.rendererOne);
+
+	d.renderWindow->Render();
+	d.rendererOne->ResetCamera();
+	d.rendererOne->ResetCameraClippingRange();
+}
+
+void CGRenderView::CGWindowsWindow::pbSlice(int x, int y, int z, int direction)
+{
+	auto& d = *m_priv;
+	d.render3D->slice(x, y, z, direction);
+
+	d.renderWindow->Render();
+	d.rendererOne->ResetCamera();
+	d.rendererOne->ResetCameraClippingRange();
+}
+
+void CGRenderView::CGWindowsWindow::pbChangeColor()
+{
+	auto& d = *m_priv;
+
+	d.render3D->changeColor(1);
 
 	d.renderWindow->Render();
 	d.rendererOne->ResetCamera();

@@ -49,11 +49,11 @@ int main()
 
     // 读取 RAW 图像数据
     vtkSmartPointer<vtkImageReader> reader = vtkSmartPointer<vtkImageReader>::New();
-    reader->SetFileName("E:/A/program/vtk/Render3D/bin64/data/mri_woman_256x256x109_uint16.raw");
+    reader->SetFileName("E:/A/program/github/VTKSample/bin64/data/mri_woman_256x256x109_uint16.raw");
     reader->SetFileDimensionality(3);
     reader->SetDataScalarType(VTK_UNSIGNED_SHORT);
     reader->SetDataExtent(0, 255, 0, 255, 0, 108);
-    reader->SetDataSpacing(0.9, 0.9, 2);
+    reader->SetDataSpacing(1., 1., 2);
     reader->SetDataOrigin(0.0, 0.0, 0.0);
     reader->Update();
 

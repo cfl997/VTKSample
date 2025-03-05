@@ -36,11 +36,13 @@ set(COMMON_HEAD_PUBLIC
 )
 set(COMMON_INCLUDE
 	VTKInclude.h
+	VTKReader3D.h
 )
 
 set(commom_src
 	CGRenderView.cpp
 	CGWindowsWindow.cpp
+	VTKReader3D.cpp
 )
 
 
