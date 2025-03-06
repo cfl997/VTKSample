@@ -1,7 +1,5 @@
 #ifndef _CGWINDOWSWINDOW_H_
 #define _CGWINDOWSWINDOW_H_
-
-
 #include "CGRenderView_Export.h"
 #include "Windows.h"
 
@@ -18,10 +16,12 @@ namespace CGRenderView
 
 		void start();
 	public:
-		void pbone();
+		void pbLoad();
 		void pbSlice(int x, int y, int z, int direction);
 
 		void pbChangeColor();
+	public:
+		void pbLoadobj();
 
 
 	private:
@@ -30,12 +30,6 @@ namespace CGRenderView
 
 		CGWindowsWindow(const CGWindowsWindow&) = delete;
 		CGWindowsWindow& operator=(const CGWindowsWindow&) = delete;
-		CGWindowsWindow(CGWindowsWindow&&) = delete;
-		CGWindowsWindow& operator=(CGWindowsWindow&&) = delete;
 	};
-
-
 }
-
-
 #endif // _CGWINDOWSWINDOW_H_

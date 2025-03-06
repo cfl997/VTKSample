@@ -1,53 +1,35 @@
-#include "VTKReader3D.h"
+ï»¿#include "VTKReader3D.h"
 #include "VTKInclude.h"
-#include <vtkMarchingCubes.h>
-#include <vtkStripper.h>
-#include <vtkOutlineFilter.h>
-#include <vtkImageReslice.h>
-#include <vtkImageSliceMapper.h>
-#include <vtkImageSlice.h>
-#include <vtkLookupTable.h>
-#include <vtkImageMapToColors.h>
-#include <vtkImageData.h>
-#include <vtkDataSetMapper.h>
-#include <vtkCutter.h>
-#include <vtkPlane.h>
-#include <vtkMatrix4x4.h>
-#include <vtkImageActor.h>
-#include <vtkImageCast.h>
-#include <vtkImageMapper3D.h>
-#include <vtkVolumeMapper.h>
-#include <vtkColorTransferFunction.h>
-#include <vtkPiecewiseFunction.h>
-#include <vtkVolume.h>
-#include <vtkVolumeProperty.h>
-#include <vtkGPUVolumeRayCastMapper.h>
-#include <vtkThreshold.h>
 
 
-struct CGRenderView::VTKRender3D::PrivateData
+struct CGRenderView::VTKReader3D::PrivateData
 {
 	vtkSmartPointer<vtkImageReader> reader;
 	vtkSmartPointer<vtkRenderer> render;
 	float Spacing = 1.0f;
 };
 
-CGRenderView::VTKRender3D::VTKRender3D(vtkSmartPointer<vtkRenderer> render) :m_priv(new PrivateData)
+CGRenderView::VTKReader3D::VTKReader3D(vtkSmartPointer<vtkRenderer> render) :m_priv(new PrivateData)
 {
 	auto& d = *m_priv;
 	d.render = render;
 }
 
-CGRenderView::VTKRender3D::~VTKRender3D()
+CGRenderView::VTKReader3D::~VTKReader3D()
 {
 	delete m_priv;
 	m_priv = nullptr;
 }
 
-bool CGRenderView::VTKRender3D::loadFile(const char* filename, int x, int y, int z, float Spacing)
+bool CGRenderView::VTKReader3D::loadFile(const char* filename, int x, int y, int z, float Spacing)
 {
 	auto& d = *m_priv;
 	d.Spacing = Spacing;
+	d.render->RemoveAllViewProps();
+	if (d.reader)
+	{
+		d.reader = nullptr;
+	}
 	d.reader = vtkSmartPointer<vtkImageReader>::New();
 	d.reader->SetFileName(filename);
 	d.reader->SetFileDimensionality(3);
@@ -71,7 +53,7 @@ bool CGRenderView::VTKRender3D::loadFile(const char* filename, int x, int y, int
 	marchingcube->SetValue(0, 500);
 
 	/*
-	*  Èı½Ç´ø£¨triangle strips£©
+	*  ä¸‰è§’å¸¦ï¼ˆtriangle stripsï¼‰
 	*/
 	vtkSmartPointer<vtkStripper> Stripper = vtkSmartPointer<vtkStripper>::New();
 	Stripper->SetInputConnection(marchingcube->GetOutputPort());
@@ -102,32 +84,27 @@ bool CGRenderView::VTKRender3D::loadFile(const char* filename, int x, int y, int
 	return true;
 }
 
-bool CGRenderView::VTKRender3D::slice(int x, int y, int z, int direction)
+bool CGRenderView::VTKReader3D::slice(int x, int y, int z, int direction)
 {
 	auto& d = *m_priv;
 
-	// Çå¿ÕÖ®Ç°µÄ actor
 	d.render->RemoveAllViewProps();
 
-	// ¼ì²éÊäÈëÊı¾İ
 	vtkImageData* imageData = d.reader->GetOutput();
 	if (!imageData) {
-		std::cerr << "´íÎó£ºÃ»ÓĞ¼ÓÔØÊı¾İ£¡" << std::endl;
+		std::cerr << "é”™è¯¯ï¼šæ²¡æœ‰åŠ è½½æ•°æ®ï¼" << std::endl;
 		return false;
 	}
 
-	// ´òÓ¡Í¼Ïñ·¶Î§ºÍÖµ·¶Î§
 	int* extent = imageData->GetExtent();
 	double* range = imageData->GetScalarRange();
-	std::cout << "Í¼Ïñ·¶Î§: "
+	std::cout << "å›¾åƒèŒƒå›´: "
 		<< extent[0] << " " << extent[1] << " "
 		<< extent[2] << " " << extent[3] << " "
 		<< extent[4] << " " << extent[5] << std::endl;
-	std::cout << "Í¼ÏñÖµ·¶Î§: " << range[0] << " " << range[1] << std::endl;
+	std::cout << "å›¾åƒå€¼èŒƒå›´: " << range[0] << " " << range[1] << std::endl;
 
-
-	// »ñÈ¡Í¼ÏñµÄ»ù±¾ĞÅÏ¢
-	//int extent[6];
+	// è·å–å›¾åƒçš„åŸºæœ¬ä¿¡æ¯
 	double spacing[3];
 	double origin[3];
 	double center[3];
@@ -140,10 +117,10 @@ bool CGRenderView::VTKRender3D::slice(int x, int y, int z, int direction)
 	center[1] = origin[1] + spacing[1] * 0.5 * (extent[2] + extent[3]);
 	center[2] = origin[2] + spacing[2] * 0.5 * (extent[4] + extent[5]);
 
-	//¶¨Òå²»Í¬·½ÏòµÄÇĞÆ¬¾ØÕó
+	//å®šä¹‰ä¸åŒæ–¹å‘çš„åˆ‡ç‰‡çŸ©é˜µ
    /*
-   * 1. Sagittal (Ê¸×´Ãæ) ÇĞÆ¬¾ØÕó£º
-   * £¨×óÓÒÇĞÆ¬£©£¬Í¨³£ÑØ X Öá ·½Ïò½øĞĞÇĞÆ¬¡£
+   * 1. Sagittal (çŸ¢çŠ¶é¢) åˆ‡ç‰‡çŸ©é˜µï¼š
+   * ï¼ˆå·¦å³åˆ‡ç‰‡ï¼‰ï¼Œé€šå¸¸æ²¿ X è½´ æ–¹å‘è¿›è¡Œåˆ‡ç‰‡ã€‚
    */
 	static double sagittalElements[16] = {
 		1, 0, 0, 0,
@@ -153,8 +130,8 @@ bool CGRenderView::VTKRender3D::slice(int x, int y, int z, int direction)
 	};
 
 	/*
-	* 2. Coronal (¹Ú×´Ãæ) ÇĞÆ¬¾ØÕó£º
-	* £¨Ç°ºóÇĞÆ¬£©£¬Í¨³£ÑØ Y Öá ·½Ïò½øĞĞÇĞÆ¬¡£
+	* 2. Coronal (å† çŠ¶é¢) åˆ‡ç‰‡çŸ©é˜µï¼š
+	* ï¼ˆå‰ååˆ‡ç‰‡ï¼‰ï¼Œé€šå¸¸æ²¿ Y è½´ æ–¹å‘è¿›è¡Œåˆ‡ç‰‡ã€‚
 	*/
 	static double coronalElements[16] = {
 		1, 0, 0, 0,
@@ -164,8 +141,8 @@ bool CGRenderView::VTKRender3D::slice(int x, int y, int z, int direction)
 	};
 
 	/*
-	* 3. Axial (ºá¶ÏÃæ) ÇĞÆ¬¾ØÕó£º
-	* £¨ÉÏÃæÇĞÆ¬£©£¬Í¨³£ÑØ Z Öá ·½Ïò½øĞĞÇĞÆ¬¡£
+	* 3. Axial (æ¨ªæ–­é¢) åˆ‡ç‰‡çŸ©é˜µï¼š
+	* ï¼ˆä¸Šé¢åˆ‡ç‰‡ï¼‰ï¼Œé€šå¸¸æ²¿ Z è½´ æ–¹å‘è¿›è¡Œåˆ‡ç‰‡ã€‚
 	*/
 	static double axialElements[16] = {
 		0, 0, 1, 0,
@@ -175,111 +152,84 @@ bool CGRenderView::VTKRender3D::slice(int x, int y, int z, int direction)
 	};
 
 
-	// ´´½¨ÇĞÆ¬¾ØÕó
+	// åˆ›å»ºåˆ‡ç‰‡çŸ©é˜µ
 	auto resliceAxes = vtkSmartPointer<vtkMatrix4x4>::New();
 	resliceAxes->SetElement(0, 3, center[0]);
 	resliceAxes->SetElement(1, 3, center[1]);
 	resliceAxes->SetElement(2, 3, center[2]);
 
-	// ¶¨ÒåÇĞÆ¬µÄ·½ÏòÏòÁ¿
+	// å®šä¹‰åˆ‡ç‰‡çš„æ–¹å‘å‘é‡
 	double x1[3] = { 1, 0, 0 };
 	double y1[3] = { 0, 1, 0 };
 	double z1[3] = { 0, 0, 1 };
 
-	// ´´½¨ vtkImageReslice ¶ÔÏó
+	// åˆ›å»º vtkImageReslice å¯¹è±¡
 	vtkSmartPointer<vtkImageReslice> reslice = vtkSmartPointer<vtkImageReslice>::New();
 	reslice->SetInputConnection(d.reader->GetOutputPort());
 	reslice->SetInterpolationModeToLinear();
 
 
-	// ÉèÖÃÇĞÆ¬µÄ·½ÏòºÍÎ»ÖÃ
-
+	// è®¾ç½®åˆ‡ç‰‡çš„æ–¹å‘å’Œä½ç½®
 	reslice->SetResliceAxesDirectionCosines(x1, y1, z1);
 	reslice->SetResliceAxesOrigin(center);
 	reslice->SetOutputDimensionality(2);
 
-	// ÉèÖÃ²åÖµÄ£Ê½
+	// è®¾ç½®æ’å€¼æ¨¡å¼
 	reslice->SetInterpolationModeToLinear();
 
-	// ¸ù¾İ·½ÏòÉèÖÃÇĞÆ¬¾ØÕó
+	auto fn = [&](int Spaceindex, int xyzValue) {
+		reslice->SetResliceAxes(resliceAxes);
+
+		double spacing = reslice->GetOutput()->GetSpacing()[Spaceindex];
+		vtkMatrix4x4* matrix1 = reslice->GetResliceAxes();
+		double point[4], center[4];
+
+		point[0] = 0.0;
+		point[1] = 0.0;
+		point[2] = spacing * xyzValue;
+		point[3] = 1.0;
+
+		matrix1->MultiplyPoint(point, center);
+		matrix1->SetElement(0, 3, center[0]);
+		matrix1->SetElement(1, 3, center[1]);
+		matrix1->SetElement(2, 3, center[2]);
+		};
+	// æ ¹æ®æ–¹å‘è®¾ç½®åˆ‡ç‰‡çŸ©é˜µ
 	switch (direction) {
-	case 1: // X ·½Ïò
+	case 1: // X æ–¹å‘
 	{
 		resliceAxes->DeepCopy(sagittalElements);
-		reslice->SetResliceAxes(resliceAxes);
-
-		double spacing = reslice->GetOutput()->GetSpacing()[0];
-		vtkMatrix4x4* matrix1 = reslice->GetResliceAxes();
-		double point[4], center[4];
-
-		point[0] = 0.0;
-		point[1] = 0.0;
-		point[2] = spacing * x;
-		point[3] = 1.0;
-
-		matrix1->MultiplyPoint(point, center);
-		matrix1->SetElement(0, 3, center[0]);
-		matrix1->SetElement(1, 3, center[1]);
-		matrix1->SetElement(2, 3, center[2]);
+		fn(0, x);
 		break;
 	}
-
-
-	case 2: // Y ·½Ïò
+	case 2: // Y æ–¹å‘
 	{
 		resliceAxes->DeepCopy(coronalElements);
-		reslice->SetResliceAxes(resliceAxes);
-
-		double spacing = reslice->GetOutput()->GetSpacing()[1];
-		vtkMatrix4x4* matrix1 = reslice->GetResliceAxes();
-		double point[4], center[4];
-		point[0] = 0.0;
-		point[1] = 0.0;
-		point[2] = spacing * y;
-		point[3] = 1.0;
-
-		matrix1->MultiplyPoint(point, center);
-		matrix1->SetElement(0, 3, center[0]);
-		matrix1->SetElement(1, 3, center[1]);
-		matrix1->SetElement(2, 3, center[2]);
+		fn(1, y);
 		break;
 	}
-	case 3: // Z ·½Ïò
+	case 3: // Z æ–¹å‘
 	default:
 	{
 		resliceAxes->DeepCopy(axialElements);
-
-		reslice->SetResliceAxes(resliceAxes);
-
-		double spacing = reslice->GetOutput()->GetSpacing()[2];
-		vtkMatrix4x4* matrix1 = reslice->GetResliceAxes();
-		double point[4], center[4];
-		point[0] = 0.0;
-		point[1] = 0.0;
-		point[2] = spacing * z;
-		point[3] = 1.0;
-
-		matrix1->MultiplyPoint(point, center);
-		matrix1->SetElement(0, 3, center[0]);
-		matrix1->SetElement(1, 3, center[1]);
-		matrix1->SetElement(2, 3, center[2]);
+		fn(2, z);
 	}
-
 	break;
 	}
 
-	// È·±£ÇĞÆ¬ÒÑ¾­¸üĞÂ
+	// ç¡®ä¿åˆ‡ç‰‡å·²ç»æ›´æ–°
 	reslice->Update();
+
 	vtkImageData* reslicedImage = reslice->GetOutput();
 	int* reslicedExtent = reslicedImage->GetExtent();
-	std::cout << "ÇĞÆ¬·¶Î§: "
+	std::cout << "åˆ‡ç‰‡èŒƒå›´ "
 		<< reslicedExtent[0] << " " << reslicedExtent[1] << " "
 		<< reslicedExtent[2] << " " << reslicedExtent[3] << " "
 		<< reslicedExtent[4] << " " << reslicedExtent[5] << std::endl;
 
-	// ´´½¨ÑÕÉ«Ó³Éä
+	// åˆ›å»ºé¢œè‰²æ˜ å°„
 	auto lookupTable = vtkSmartPointer<vtkLookupTable>::New();
-	lookupTable->SetRange(range[0], range[1]); // Ê¹ÓÃÍ¼ÏñµÄÊµ¼ÊÖµ·¶Î§
+	lookupTable->SetRange(range[0], range[1]); // ä½¿ç”¨å›¾åƒçš„å®é™…å€¼èŒƒå›´
 	lookupTable->SetValueRange(0.0, 1.0);
 	lookupTable->SetSaturationRange(0.0, 0.0);
 	lookupTable->SetRampToLinear();
@@ -290,64 +240,117 @@ bool CGRenderView::VTKRender3D::slice(int x, int y, int z, int direction)
 	colorMap->SetLookupTable(lookupTable);
 	colorMap->Update();
 
-	// ´´½¨ actor
 	vtkSmartPointer<vtkImageActor> imageActor = vtkSmartPointer<vtkImageActor>::New();
 	imageActor->SetInputData(colorMap->GetOutput());
 
-	// ½« actor Ìí¼Óµ½äÖÈ¾Æ÷
 	d.render->AddActor(imageActor);
-	d.render->SetBackground(1, 1, 1); // ÉèÖÃ±³¾°ÑÕÉ«Îª°×É«
-	// Ë¢ĞÂäÖÈ¾´°¿Ú
+	d.render->SetBackground(1, 1, 1); 
+
+	d.render->GradientBackgroundOff();
+	d.render->UseHiddenLineRemovalOff();
+	d.render->UseShadowsOff();
+
 	d.render->ResetCamera();
 
 	return true;
 }
 
-bool CGRenderView::VTKRender3D::changeColor(int time)
+bool CGRenderView::VTKReader3D::changeColor(int time)
 {
 	auto& d = *m_priv;
 
-	d.render->RemoveAllViewProps();  // Çå¿Õµ±Ç°ÊÓÍ¼µÄËùÓĞÏÔÊ¾Ïî
+	d.render->RemoveAllViewProps();
 
-	// »ñÈ¡Í¼ÏñÊı¾İ
 	vtkSmartPointer<vtkImageData> imageData = d.reader->GetOutput();
 
-	// »ñÈ¡Í¼ÏñÊı¾İµÄ×î´óÖµºÍ×îĞ¡Öµ
 	double range[2];
-	imageData->GetScalarRange(range);  // »ñÈ¡Êı¾İµÄ×îĞ¡ÖµºÍ×î´óÖµ
+	imageData->GetScalarRange(range);
 	std::cout << "Scalar Range: " << range[0] << " - " << range[1] << std::endl;
 
 
-	// Ê¹ÓÃGPU¼ÓËÙµÄÌå»ıÓ³ÉäÆ÷
+	// ä½¿ç”¨GPUåŠ é€Ÿçš„ä½“ç§¯æ˜ å°„å™¨
 	vtkSmartPointer<vtkGPUVolumeRayCastMapper> volumeMapper = vtkSmartPointer<vtkGPUVolumeRayCastMapper>::New();
 	volumeMapper->SetInputData(imageData);
 
-	// ´´½¨ÑÕÉ«´«Êäº¯Êı£¬ÓÃÓÚÉèÖÃÑÕÉ«
 	vtkSmartPointer<vtkColorTransferFunction> colorTransferFunction = vtkSmartPointer<vtkColorTransferFunction>::New();
-	colorTransferFunction->AddRGBPoint(range[0], 0.0, 0.0, 0.0);  // ºÚÉ«
-	colorTransferFunction->AddRGBPoint(range[1], 1.0, 1.0, 0.0);  // ºìÉ«
-	// ¿ÉÒÔ¸ù¾İĞèÒªÔö¼Ó¸ü¶àµÄÑÕÉ«Ó³Éäµã
+	colorTransferFunction->AddRGBPoint(range[0], 0.0, 0.0, 0.0);  // é»‘è‰²
+	colorTransferFunction->AddRGBPoint(range[1], 1.0, 1.0, 0.0);  
 
-	// ´´½¨Í¸Ã÷¶È´«Êäº¯Êı£¬ÓÃÓÚÉèÖÃÍ¸Ã÷¶È
 	vtkSmartPointer<vtkPiecewiseFunction> opacityTransferFunction = vtkSmartPointer<vtkPiecewiseFunction>::New();
-	opacityTransferFunction->AddPoint(range[0], 0.0);  // Í¸Ã÷
-	opacityTransferFunction->AddPoint(range[1], 1.0);  // ²»Í¸Ã÷
-	// ¿ÉÒÔ¸ù¾İĞèÒªµ÷ÕûÍ¸Ã÷¶ÈÓ³Éäµã
+	opacityTransferFunction->AddPoint(range[0], 0.0);  // é€æ˜
+	opacityTransferFunction->AddPoint(range[1], 1.0);  // ä¸é€æ˜
 
-	// ´´½¨Ìå»ı¶ÔÏó
+	// åˆ›å»ºä½“ç§¯å¯¹è±¡
 	vtkSmartPointer<vtkVolume> volume = vtkSmartPointer<vtkVolume>::New();
 	volume->SetMapper(volumeMapper);
 	volume->GetProperty()->SetColor(colorTransferFunction);
 	volume->GetProperty()->SetScalarOpacity(opacityTransferFunction);
 
-	// ÉèÖÃÍ¸Ã÷¶Èµ¥Î»¾àÀë£¨¿ØÖÆÍ¸Ã÷¶È·Ö²¼µÄ¡°ÃÜ¶È¡±£©
+	// è®¾ç½®é€æ˜åº¦å•ä½è·ç¦»ï¼ˆæ§åˆ¶é€æ˜åº¦åˆ†å¸ƒçš„â€œå¯†åº¦â€ï¼‰
 	volume->GetProperty()->SetScalarOpacityUnitDistance(5.0);
+
+	d.render->SetBackground(0, 0, 0);
 
 	d.render->AddVolume(volume);
 
-	// Ë¢ĞÂäÖÈ¾´°¿Ú
 	d.render->ResetCamera();
 
-	return false;
+	return true;
+}
+
+
+bool CGRenderView::VTKReader3D::loadObj(const char* obj, const char* mtl, const char* filepath)
+{
+	auto& d = *m_priv;
+
+	if (!d.render || !d.render->GetRenderWindow()) {
+		std::cerr << "Render window is not initialized." << std::endl;
+		return false;
+	}
+
+	d.render->RemoveAllViewProps();
+
+	vtkNew<vtkOBJImporter> importer;
+	importer->SetFileName((std::string(filepath) + obj).c_str());
+	importer->SetFileNameMTL((std::string(filepath) + mtl).c_str());
+	importer->SetTexturePath(filepath);
+	importer->SetRenderWindow(d.render->GetRenderWindow());
+	importer->Update();
+
+	// éªŒè¯æ˜¯å¦æˆåŠŸåŠ è½½
+	vtkRenderer* impRenderer = importer->GetRenderer();
+	if (!impRenderer || impRenderer->GetActors()->GetNumberOfItems() == 0) {
+		std::cerr << "Error: Failed to load OBJ file or no actors found: " << obj << std::endl;
+		return false;
+	}
+
+	std::cout << "OBJ file loaded successfully.\n";
+
+	// è®¾ç½®èƒŒæ™¯
+	vtkNew<vtkNamedColors> colors;
+	d.render->SetBackground2(colors->GetColor3d("Silver").GetData());
+	d.render->SetBackground(colors->GetColor3d("Gold").GetData());
+	d.render->GradientBackgroundOn();
+	d.render->UseHiddenLineRemovalOn();
+	d.render->UseShadowsOn();
+	d.render->SetAmbient(0.3, 0.3, 0.3);
+
+	// éå† actors
+	vtkActorCollection* actors = impRenderer->GetActors();
+	actors->InitTraversal();
+
+	vtkActor* actor = nullptr;
+	while ((actor = actors->GetNextActor()) != nullptr) {
+		std::cout << "Loaded actor.\n";
+
+		// å¤„ç†çº¹ç†
+		if (actor->GetTexture()) {
+			std::cout << "Actor has texture\n";
+			actor->GetTexture()->InterpolateOn();
+			actor->GetTexture()->RepeatOn();
+		}
+	}
+
+	return true;
 }
 

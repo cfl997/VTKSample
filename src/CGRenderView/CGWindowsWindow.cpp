@@ -1,11 +1,5 @@
 ﻿#include "CGWindowsWindow.h"
 #include "VTKInclude.h"
-#include <QVTKOpenGLNativeWidget.h>
-#include <vtkInteractorStyleTrackballCamera.h>
-#include <vtkImageReader.h>
-#include <vtkMarchingCubes.h>
-#include <vtkStripper.h>
-#include <vtkOutlineFilter.h>
 #include "VTKReader3D.h"
 
 using namespace CGRenderView;
@@ -16,7 +10,7 @@ struct CGWindowsWindow::PrivateData
 	vtkSmartPointer<vtkRenderWindow> renderWindow;
 	vtkSmartPointer<vtkRenderer> renderer;
 
-	VTKRender3D* render3D = nullptr;
+	VTKReader3D* render3D = nullptr;
 
 	QVTKOpenGLNativeWidget* vtkWidget;
 	HWND hwnd;
@@ -25,10 +19,16 @@ struct CGWindowsWindow::PrivateData
 	* pushbutton
 	*/
 	vtkSmartPointer<vtkRenderer>rendererOne;
+
+	void renderCameraReset();
 };
 
 CGWindowsWindow::CGWindowsWindow(HWND hwnd, unsigned int width, unsigned int height) : m_priv(new PrivateData)
 {
+	auto vtkversion = vtkVersion::GetVTKVersion();
+	std::cout << vtkversion << std::endl;
+
+
 	auto& d = *m_priv;
 	d.hwnd = hwnd;
 
@@ -82,7 +82,7 @@ CGWindowsWindow::CGWindowsWindow(HWND hwnd, unsigned int width, unsigned int hei
 	*/
 	d.rendererOne = vtkSmartPointer<vtkRenderer>::New();
 	{
-		d.render3D = new CGRenderView::VTKRender3D(d.rendererOne);
+		d.render3D = new CGRenderView::VTKReader3D(d.rendererOne);
 		d.render3D->loadFile("E:/A/program/github/VTKSample/bin64/data/mri_woman_256x256x109_uint16.raw", 256, 256, 109);
 	}
 
@@ -150,15 +150,15 @@ void CGRenderView::CGWindowsWindow::start()
 	}
 }
 
-void CGRenderView::CGWindowsWindow::pbone()
+void CGRenderView::CGWindowsWindow::pbLoad()
 {
 	auto& d = *m_priv;
 	d.renderWindow->RemoveRenderer(d.renderer);
 	d.renderWindow->AddRenderer(d.rendererOne);
 
-	d.renderWindow->Render();
-	d.rendererOne->ResetCamera();
-	d.rendererOne->ResetCameraClippingRange();
+	d.render3D->loadFile("E:/A/program/github/VTKSample/bin64/data/mri_woman_256x256x109_uint16.raw", 256, 256, 109);
+
+	d.renderCameraReset();
 }
 
 void CGRenderView::CGWindowsWindow::pbSlice(int x, int y, int z, int direction)
@@ -166,9 +166,8 @@ void CGRenderView::CGWindowsWindow::pbSlice(int x, int y, int z, int direction)
 	auto& d = *m_priv;
 	d.render3D->slice(x, y, z, direction);
 
-	d.renderWindow->Render();
-	d.rendererOne->ResetCamera();
-	d.rendererOne->ResetCameraClippingRange();
+
+	d.renderCameraReset();
 }
 
 void CGRenderView::CGWindowsWindow::pbChangeColor()
@@ -177,7 +176,25 @@ void CGRenderView::CGWindowsWindow::pbChangeColor()
 
 	d.render3D->changeColor(1);
 
-	d.renderWindow->Render();
-	d.rendererOne->ResetCamera();
-	d.rendererOne->ResetCameraClippingRange();
+	d.renderCameraReset();
+}
+
+static const char* objFile = "cyborg.obj";
+static const char* mtlFile = "cyborg.mtl";
+static const char* texturePath = "E:/A/program/github/VTKSample/bin64/data/cyborg/";
+
+
+void CGRenderView::CGWindowsWindow::pbLoadobj()
+{
+	auto& d = *m_priv;
+
+	d.render3D->loadObj(objFile, mtlFile, texturePath);
+	d.renderCameraReset();
+}
+
+void CGWindowsWindow::PrivateData::renderCameraReset()
+{
+	renderWindow->Render();
+	rendererOne->ResetCamera();
+	rendererOne->ResetCameraClippingRange();
 }

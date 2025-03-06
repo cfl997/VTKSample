@@ -3,10 +3,11 @@
 #include "QtDisplayWidget.h"
 
 
-
+#include <Windows.h>
 
 int main(int argc, char* argv[])
 {
+	SetConsoleOutputCP(CP_UTF8);  // 设置控制台输出为 UTF-8 编码
 
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 11, 0))
 	QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
